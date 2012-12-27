@@ -15,5 +15,5 @@ class BitemporalModelBase(models.Model):
     class Meta:
         abstract = True
         unique_together = [
-            ('id', 'start_date', 'end_date', 'txn_end_date'),
+            ('id', 'valid_start_date', 'valid_end_date', 'txn_end_date'),
         ]
