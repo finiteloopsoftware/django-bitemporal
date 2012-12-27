@@ -53,9 +53,9 @@ class TestContact(TestCase):
         obj.save()
 
     def test_get_john_doe(self):
-        obj = models.Contact.objects.get(pk=1)
+        obj = models.Contact.objects.current().get(pk=1)
         self.assertEqual(obj.name, u"John Doe")
 
     def test_get_achme(self):
-        obj = models.Contact.objects.get(pk=2)
+        obj = models.Contact.objects.current().get(pk=2)
         self.assertEqual(obj.name, u"Acme LLC")
