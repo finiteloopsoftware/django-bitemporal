@@ -47,7 +47,7 @@ class BitemporalModelBase(models.Model):
     id = models.IntegerField()
     row_id = models.AutoField(primary_key=True)
 
-    valid_start_date = models.DateTimeField(auto_now_add=True)
+    valid_start_date = models.DateTimeField()
     valid_end_date = models.DateTimeField(blank=True, null=True)
 
     txn_start_date = models.DateTimeField(auto_now_add=True)
@@ -58,3 +58,13 @@ class BitemporalModelBase(models.Model):
         unique_together = [
             ('id', 'valid_start_date', 'valid_end_date', 'txn_end_date'),
         ]
+
+    def save(self, valid_start_date=None, valid_end_date=None,
+            force_insert=False, force_update=False, using=None,
+            update_fields=None):
+
+        if not self.valid_start_date:
+            self.valid_start_date = valid_start_date or datetime.now()
+
+        self.save_base(using=using, force_insert=force_insert,
+                       force_update=force_update, update_fields=None)
