@@ -14,11 +14,18 @@ class BitemporalQuerySet(QuerySet):
 
         return super(BitemporalQuerySet, self).get(*args, **kwargs)
 
+    def during(self, valid_start, valid_end=None):
+        if valid_end:
+            condition = Q(valid_end_date__gte=valid_end)
+        else:
+            condition = (Q(valid_end_date__gte=valid_start) |
+                    Q(valid_end_date=None))
+
+        return self.filter(condition,
+            valid_start_date__lte=valid_start, txn_end_date=None)
+
     def current(self):
-        now = datetime.now()
-        return self.filter(
-            Q(valid_end_date__gte=now) | Q(valid_end_date=None),
-            valid_start_date__lte=now, txn_end_date=None)
+        return self.during(datetime.now())
 
 
 class BitemporalManager(Manager):
