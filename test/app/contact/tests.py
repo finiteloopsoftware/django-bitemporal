@@ -128,3 +128,19 @@ class TestContact(TestCase):
 
         obj = models.Contact.objects.current().get(row_id=obj.row_id)
         self.assertEqual(obj.id, obj.row_id)
+
+
+    def test_update_acme(self):
+        new_name = u"Acme and Sons LLC"
+        obj = models.Contact.objects.current().get(pk=2)
+        row_id = obj.row_id
+        old_name = obj.name
+        obj.name = new_name
+        obj.save()
+
+        self.assertEqual(old_name, obj.name)
+
+        # Get the new object
+        obj = models.Contact.objects.current().get(pk=2)
+        self.assertGreater(obj.row_id, row_id)
+        self.assertEqual(obj.name, new_name)
