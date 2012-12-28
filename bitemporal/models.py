@@ -7,6 +7,13 @@ from django.db.models.manager import Manager
 
 class BitemporalQuerySet(QuerySet):
 
+    def get(self, *args, **kwargs):
+        if 'pk' in kwargs:
+            kwargs['id'] = kwargs['pk']
+            del kwargs['pk']
+
+        return super(BitemporalQuerySet, self).get(*args, **kwargs)
+
     def current(self):
         now = datetime.now()
         return self.filter(
