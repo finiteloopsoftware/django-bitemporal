@@ -40,9 +40,9 @@ class TestContact(TestCase):
         obj.save()
 
         end_date = datetime.datetime(1997, 5, 13, 0, 0, 0)
-
         obj.txn_end_date=end_date
         obj.save()
+
         obj = models.Contact(id=2,
                 name=u"Acme LLC",
                 is_organization=True,
@@ -51,6 +51,29 @@ class TestContact(TestCase):
                 txn_start_date=datetime.datetime.now(),
                 txn_end_date=None)
         obj.save()
+
+        obj = models.Contact(id=3,
+                name=u"Jane Duck",
+                is_organization=False,
+                valid_start_date=datetime.datetime(1973, 2, 22, 0, 0, 0),
+                valid_end_date=None,
+                txn_start_date=datetime.datetime.now(),
+                txn_end_date=None)
+        obj.save()
+
+        end_date = datetime.datetime(2003, 7, 8, 0, 0, 0)
+        obj.txn_end_date=end_date
+        obj.save()
+
+        obj = models.Contact(id=3,
+                name=u"Jane Doe",
+                is_organization=False,
+                valid_start_date=end_date,
+                valid_end_date=None,
+                txn_start_date=datetime.datetime.now(),
+                txn_end_date=None)
+        obj.save()
+
 
     def test_get_john_doe(self):
         obj = models.Contact.objects.current().get(pk=1)
