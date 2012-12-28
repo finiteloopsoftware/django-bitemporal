@@ -125,9 +125,6 @@ class TestContact(TestCase):
     def test_insert_billy_bob(self):
         obj = models.Contact(name=u"Billy Bob", is_organization=False)
         obj.save()
+
+        obj = models.Contact.objects.current().get(row_id=obj.row_id)
         self.assertEqual(obj.id, obj.row_id)
-
-
-
-
-

@@ -44,7 +44,7 @@ class BitemporalModelBase(models.Model):
 
     objects = BitemporalManager()
 
-    id = models.IntegerField()
+    id = models.IntegerField(blank=True, null=True)
     row_id = models.AutoField(primary_key=True)
 
     valid_start_date = models.DateTimeField()
@@ -66,8 +66,9 @@ class BitemporalModelBase(models.Model):
         if not self.valid_start_date:
             self.valid_start_date = valid_start_date or datetime.now()
 
-        if not self.id:
-            self.id = self.row_id
-
         self.save_base(using=using, force_insert=force_insert,
                        force_update=force_update, update_fields=None)
+
+        if not self.id:
+            self.id = self.row_id
+            self.save_base(using=using, update_fields=('id',))
