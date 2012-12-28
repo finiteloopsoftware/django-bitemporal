@@ -98,5 +98,5 @@ class TestContact(TestCase):
         self.assertEqual(obj.name, u"Acme LLC")
 
     def test_get_current_jane_doe(self):
-        obj = models.Contact.objects.current().get(id=3)
-        self.assertEqual(obj, None)
+        self.assertRaises(models.Contact.DoesNotExist,
+                models.Contact.objects.current().get, id=3)
