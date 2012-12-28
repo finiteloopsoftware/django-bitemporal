@@ -74,11 +74,29 @@ class TestContact(TestCase):
                 txn_end_date=None)
         obj.save()
 
+        start_date = obj.valid_start_date
+        end_date = datetime.datetime(2005, 9, 18, 0, 0, 0)
+        obj.txn_end_date=end_date
+        obj.save()
 
-    def test_get_john_doe(self):
+        obj = models.Contact(id=3,
+                name=u"Jane Doe",
+                is_organization=False,
+                valid_start_date=start_date,
+                valid_end_date=end_date,
+                txn_start_date=datetime.datetime.now(),
+                txn_end_date=None)
+        obj.save()
+
+
+    def test_get_current_john_doe(self):
         obj = models.Contact.objects.current().get(pk=1)
         self.assertEqual(obj.name, u"John Doe")
 
-    def test_get_achme(self):
+    def test_get_current_achme(self):
         obj = models.Contact.objects.current().get(pk=2)
         self.assertEqual(obj.name, u"Acme LLC")
+
+    def test_get_current_jane_doe(self):
+        obj = models.Contact.objects.current().get(pk=3)
+        self.assertEqual(obj, None)
