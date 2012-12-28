@@ -36,6 +36,9 @@ class BitemporalManager(Manager):
     def current(self):
         return self.get_query_set().current()
 
+    def during(self, valid_start, valid_end=None):
+        return self.get_query_set().during(valid_start, valid_end)
+
 
 class BitemporalModelBase(models.Model):
 
