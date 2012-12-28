@@ -121,3 +121,13 @@ class TestContact(TestCase):
             datetime.datetime(2005, 1, 1, 0, 0, 0)
             ).get(pk=3)
         self.assertEqual(obj.name, u"Jane Doe")
+
+    def test_insert_billy_bob(self):
+        obj = models.Contact(name=u"Billy Bob", is_organization=False)
+        obj.save()
+        self.assertEqual(obj.id, obj.row_id)
+
+
+
+
+
