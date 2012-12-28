@@ -1,3 +1,4 @@
+import copy
 from django.db import models
 from datetime import datetime
 from django.db.models import Q
@@ -59,6 +60,11 @@ class BitemporalModelBase(models.Model):
             ('id', 'valid_start_date', 'valid_end_date', 'txn_end_date'),
         ]
 
+    def _clone(self):
+        new_obj = copy.deepcopy(self)
+        new_obj.row_id = None
+        return new_obj
+
     def save(self, valid_start_date=None, valid_end_date=None,
             force_insert=False, force_update=False, using=None,
             update_fields=None):
@@ -72,3 +78,37 @@ class BitemporalModelBase(models.Model):
         if not self.id:
             self.id = self.row_id
             self.save_base(using=using, update_fields=('id',))
+
+    def ammend(self):
+        now = datetime.now()
+
+        new_obj = self._clone()
+        new_obj.txn_start_date = now
+
+        self.txn_end_date = now
+
+        new_obj.valid_end_date = self.valid_start_date
+
+        self.save()
+        new_obj.save()
+
+        return new_obj
+
+    def update(self):
+        now = datetime.now()
+
+        previous_date = self._clone()
+        previous_date.valid_end_date = now
+        previous_date.txn_end_date = None
+
+        updated = self._clone()
+        updated.valid_start_date = now
+        updated.valid_end_date = None
+
+        self.txn_end_date = now
+
+        self.save()
+        updated.save()
+        previous_date.save()
+
+        return updated
