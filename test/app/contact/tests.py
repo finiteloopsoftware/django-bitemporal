@@ -90,13 +90,13 @@ class TestContact(TestCase):
 
 
     def test_get_current_john_doe(self):
-        obj = models.Contact.objects.current().get(pk=1)
+        obj = models.Contact.objects.current().get(id=1)
         self.assertEqual(obj.name, u"John Doe")
 
     def test_get_current_achme(self):
-        obj = models.Contact.objects.current().get(pk=2)
+        obj = models.Contact.objects.current().get(id=2)
         self.assertEqual(obj.name, u"Acme LLC")
 
     def test_get_current_jane_doe(self):
-        obj = models.Contact.objects.current().get(pk=3)
+        obj = models.Contact.objects.current().get(id=3)
         self.assertEqual(obj, None)

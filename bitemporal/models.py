@@ -8,9 +8,10 @@ from django.db.models.manager import Manager
 class BitemporalQuerySet(QuerySet):
 
     def current(self):
+        now = datetime.now()
         return self.filter(
-            valid_start_date__gte=datetime.now(),
-            Q(valid_end_date__lte=datetime.now()) | Q(valid_end_date=None))
+            Q(valid_end_date__gte=now) | Q(valid_end_date=None),
+            valid_start_date__lte=now, txn_end_date=None)
 
 
 class BitemporalManager(Manager):
@@ -18,8 +19,13 @@ class BitemporalManager(Manager):
     def get_query_set(self):
         return BitemporalQuerySet(self.model, using=self._db)
 
+    def current(self):
+        return self.get_query_set().current()
+
 
 class BitemporalModelBase(models.Model):
+
+    objects = BitemporalManager()
 
     id = models.IntegerField()
     row_id = models.AutoField(primary_key=True)
