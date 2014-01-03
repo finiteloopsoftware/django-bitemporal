@@ -85,39 +85,39 @@ class BitemporalModelBase(models.Model):
             self.id = self.row_id
             self.save_base(using=using, update_fields=('id',))
 
-    def ammend(self):
+    def ammend(self, as_of=None):
         """
             Save self, old values were true 'till now
         """
+        old = self._original()
+        self.row_id = None
+
         now = utcnow()
+        if as_of is None:
+            as_of = now
 
-        new_obj = self._clone()
-        new_obj.txn_start_date = now
+        old_obj.txn_end_date = now
+        self.txn_start_date = now
 
-        self.txn_end_date = now
-
-        new_obj.valid_end_date = self.valid_start_date
+        old_obj.valid_end_date = as_of
+        self.valid_start_date = as_of
 
         self.save()
-        new_obj.save()
-
-        return new_obj
+        old_obj.save()
 
     def update(self):
         """
             Save self, old values were never true, valid_date range will be null
         """
         now = utcnow()
-        old = self._original()
+        old_obj = self._original()
         self.row_id = None
 
         # End = start - this was never true
-        old.valid_end_date = self.valid_start_date
-        old.txn_end_date = now
+        old_obj.valid_end_date = self.valid_start_date
+        old_obj.txn_end_date = now
 
-        self.valid_start_date = old.valid_start_date
+        self.valid_start_date = old_obj.valid_start_date
 
         self.save()
-        old.save()
-
-        return self
+        old_obj.save()
