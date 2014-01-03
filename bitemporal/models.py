@@ -1,9 +1,10 @@
 import copy
 from django.db import models
-from datetime import datetime
+#from datetime import datetime
 from django.db.models import Q
 from django.db.models.query import QuerySet
 from django.db.models.manager import Manager
+from django.utils.timezone import now as utcnow
 
 
 class BitemporalQuerySet(QuerySet):
@@ -26,7 +27,7 @@ class BitemporalQuerySet(QuerySet):
             valid_start_date__lte=valid_start, txn_end_date=None)
 
     def current(self):
-        return self.during(datetime.now())
+        return self.during(utcnow())
 
 
 class BitemporalManager(Manager):
@@ -65,22 +66,30 @@ class BitemporalModelBase(models.Model):
         new_obj.row_id = None
         return new_obj
 
+    def _original(self):
+        return self.__class__.objects.get(row_id=self.row_id)
+
     def save(self, valid_start_date=None, valid_end_date=None,
             force_insert=False, force_update=False, using=None,
             update_fields=None):
 
+        # self.valid_start_date overrides kwarg valid_start_date ??
         if not self.valid_start_date:
-            self.valid_start_date = valid_start_date or datetime.now()
+            self.valid_start_date = valid_start_date or utcnow()
 
         self.save_base(using=using, force_insert=force_insert,
                        force_update=force_update, update_fields=None)
 
+        # Double save for new objects? use something else to generate ids?
         if not self.id:
             self.id = self.row_id
             self.save_base(using=using, update_fields=('id',))
 
     def ammend(self):
-        now = datetime.now()
+        """
+            Save self, old values were true 'till now
+        """
+        now = utcnow()
 
         new_obj = self._clone()
         new_obj.txn_start_date = now
@@ -95,20 +104,20 @@ class BitemporalModelBase(models.Model):
         return new_obj
 
     def update(self):
-        now = datetime.now()
+        """
+            Save self, old values were never true, valid_date range will be null
+        """
+        now = utcnow()
+        old = self._original()
+        self.row_id = None
 
-        previous_date = self._clone()
-        previous_date.valid_end_date = now
-        previous_date.txn_end_date = None
+        # End = start - this was never true
+        old.valid_end_date = self.valid_start_date
+        old.txn_end_date = now
 
-        updated = self._clone()
-        updated.valid_start_date = now
-        updated.valid_end_date = None
-
-        self.txn_end_date = now
+        self.valid_start_date = old.valid_start_date
 
         self.save()
-        updated.save()
-        previous_date.save()
+        old.save()
 
-        return updated
+        return self
