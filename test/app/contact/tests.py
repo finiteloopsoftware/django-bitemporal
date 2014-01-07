@@ -1,9 +1,11 @@
+import datetime
+
+from django.db import IntegrityError
 from django.test import TestCase
 from django.utils import unittest
-from contact import models
-import datetime
 from django.utils.timezone import now, utc
 
+from contact import models
 
 class TestContact(TestCase):
 
@@ -130,7 +132,6 @@ class TestContact(TestCase):
         obj = models.Contact.objects.current().get(row_id=obj.row_id)
         self.assertEqual(obj.id, obj.row_id)
 
-
     def test_update_acme(self):
         new_name = u"Acme and Sons LLC"
         obj = models.Contact.objects.current().get(pk=2)
@@ -146,3 +147,21 @@ class TestContact(TestCase):
         obj = models.Contact.objects.current().get(pk=2)
         self.assertGreater(obj.row_id, row_id)
         self.assertEqual(obj.name, new_name)
+
+    def test_invalid_amend(self):
+        # Fetch a non-current row
+        new_name = u"Acme and Sons LLC"
+        obj = models.Contact.objects.get(name="Acme Corp")
+
+        with self.assertRaises(IntegrityError):
+            obj.name = new_name
+            obj.amend()
+
+    def test_invalid_update(self):
+        # Fetch a non-current row
+        new_name = u"Acme and Sons LLC"
+        obj = models.Contact.objects.get(name="Acme Corp")
+
+        with self.assertRaises(IntegrityError):
+            obj.name = new_name
+            obj.update()

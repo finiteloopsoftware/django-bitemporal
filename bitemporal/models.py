@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.db.models.query import QuerySet
 from django.db.models.manager import Manager
 from django.utils.timezone import now as utcnow
+from django.db import IntegrityError
 
 
 class BitemporalQuerySet(QuerySet):
@@ -61,63 +62,64 @@ class BitemporalModelBase(models.Model):
             ('id', 'valid_start_date', 'valid_end_date', 'txn_end_date'),
         ]
 
-    def _clone(self):
-        new_obj = copy.deepcopy(self)
-        new_obj.row_id = None
-        return new_obj
+    def save(self, as_of=None, force_insert=False, force_update=False, using=None, update_fields=None):
+        """ if as_of is provided, self.valid_start_date is set to it.
+        if self.valid_start_date is undefined, it is set to now.
+        """
 
-    def _original(self):
-        return self.__class__.objects.get(row_id=self.row_id)
+        if as_of is not None:
+            self.valid_start_date = as_of
 
-    def save(self, valid_start_date=None, valid_end_date=None,
-            force_insert=False, force_update=False, using=None,
-            update_fields=None):
-
-        # self.valid_start_date overrides kwarg valid_start_date ??
-        if not self.valid_start_date:
-            self.valid_start_date = valid_start_date or utcnow()
+        if self.valid_start_date is None:
+            self.valid_start_date = utcnow()
 
         self.save_base(using=using, force_insert=force_insert,
-                       force_update=force_update, update_fields=None)
+                       force_update=force_update, update_fields=update_fields)
 
         # Double save for new objects? use something else to generate ids?
         if not self.id:
             self.id = self.row_id
             self.save_base(using=using, update_fields=('id',))
 
-    def ammend(self, as_of=None):
+    def amend(self, as_of=None, using=None, update_fields=None):
         """
             Save self, old values were true 'till now
         """
-        old = self._original()
-        self.row_id = None
-
         now = utcnow()
         if as_of is None:
             as_of = now
 
-        old_obj.txn_end_date = now
+        if self.txn_end_date != None:
+            #Raise error, must change an active row
+            raise IntegrityError('[{}] row_id: {} is not an active row'.format(
+                self.__class__.__name__, self.row_id))
+
+        if self.valid_end_date and as_of > self.valid_end_date:
+            raise IntegrityError('as_of date {} must precede valid_end_date {}'.format(
+                as_of, self.valid_end_date))
+
+        self.txn_end_date = now
+        old_end = self.valid_end_date
+        self.valid_end_date = as_of
+        # Only save changes to bitemporal fields (Prevents overwriting data changes to the old row)
+        self.save(using=using, update_fields=['txn_end_date', 'valid_end_date',])
+
+        # Make sure we create a new row entry
+        self.row_id = None
+
         self.txn_start_date = now
-
-        old_obj.valid_end_date = as_of
+        self.txn_end_date = None
         self.valid_start_date = as_of
+        self.valid_end_date = old_end
 
-        self.save()
-        old_obj.save()
+        if update_fields:
+            field_list = ['txn_end_date', 'valid_end_date',] + update_fields
+            self.save(using=using, update_fields=field_list)
+        else:
+            self.save(using=using)
 
-    def update(self):
+    def update(self, using=None, update_fields=None):
         """
             Save self, old values were never true, valid_date range will be null
         """
-        now = utcnow()
-        old_obj = self._original()
-        self.row_id = None
-
-        # End = start - this was never true
-        old_obj.valid_end_date = self.valid_start_date
-        old_obj.txn_end_date = now
-
-        self.valid_start_date = old_obj.valid_start_date
-
-        self.save()
-        old_obj.save()
+        self.amend(as_of=self.valid_start_date)
