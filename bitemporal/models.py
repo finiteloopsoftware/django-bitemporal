@@ -17,6 +17,10 @@ class BitemporalQuerySet(QuerySet):
 
         return super(BitemporalQuerySet, self).get(*args, **kwargs)
 
+    def delete(self):
+        for obj in self:
+            obj.delete()
+
     def during(self, valid_start, valid_end=None):
         if valid_end:
             condition = Q(valid_end_date__gte=valid_end)
