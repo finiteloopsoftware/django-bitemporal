@@ -115,7 +115,7 @@ class BitemporalModelBase(models.Model):
         old_self.valid_end_date = as_of
 
         # save change 
-        old_self.save(using=using, )
+        old_self.save(using=using)
 
         # Save self as new row
         self.row_id = None
@@ -132,3 +132,28 @@ class BitemporalModelBase(models.Model):
             old values were never true, valid_date range will be null
         """
         self.amend(as_of=self.valid_start_date, using=using)
+
+    def delete(self, as_of=None, using=None):
+        """
+            Invalidate self
+            Write new row with valid_end_date set
+        """
+
+        now = utcnow()
+        if as_of is None:
+            as_of = now
+
+        # Refetch data so we don't update any fields
+        old_self = self._original()
+        old_self.txn_end_date = now
+        # invalidate previous row
+        old_self.save(using=using, update_fields=['txn_end_date',])
+
+        # Save new row with valid end date
+        old_self.row_id = None
+        old_self.txn_start_date = now
+        old_self.txn_end_date = None
+        old_self.valid_end_date = as_of
+
+        # save change
+        old_self.save(using=using)
