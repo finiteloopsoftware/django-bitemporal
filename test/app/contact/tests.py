@@ -100,7 +100,7 @@ class TestContact(TestCase):
         print
         for obj in objs:
             print unicode(obj)
-            obj.delete()
+            obj.eradicate()
 
     def test_get_current_john_doe(self):
         obj = models.Contact.objects.current().get(pk=1)
@@ -166,3 +166,21 @@ class TestContact(TestCase):
         with self.assertRaises(IntegrityError):
             obj.name = new_name
             obj.update()
+
+    def test_cannot_delete_jane_doe(self):
+        obj = models.Contact.objects.during(
+            datetime.datetime(1977, 1, 1, 0, 0, 0, tzinfo=utc)).get(pk=3)
+
+        with self.assertRaises(IntegrityError):
+            obj.delete()
+
+    def test_delete_john_doe(self):
+        obj = models.Contact.objects.current().get(pk=1)
+        then = now()
+        obj = obj.delete()
+
+        with self.assertRaises(models.Contact.DoesNotExist):
+            obj = models.Contact.objects.current().get(pk=1)
+
+        self.assertGreater(obj.txn_start_date, then)
+        self.assertGreater(obj.valid_end_date, then)
