@@ -28,8 +28,9 @@ class TestContact(TestCase):
                 txn_end_date=None)
         obj.save()
 
+        right_now = now()
         end_date = datetime.datetime(1997, 5, 13, 0, 0, 0, tzinfo=utc)
-        obj.txn_end_date=end_date
+        obj.txn_end_date=right_now
         obj.save()
 
         obj = models.Contact(id=2,
@@ -37,7 +38,7 @@ class TestContact(TestCase):
                 is_organization=True,
                 valid_start_date=end_date,
                 valid_end_date=None,
-                txn_start_date=now(),
+                txn_start_date=right_now,
                 txn_end_date=None)
         obj.save()
 
@@ -79,9 +80,10 @@ class TestContact(TestCase):
         obj.save()
 
         # Pre Delete Update
+        right_now = now()
         start_date = obj.valid_start_date
         end_date = datetime.datetime(2005, 9, 18, 0, 0, 0, tzinfo=utc)
-        obj.txn_end_date=end_date
+        obj.txn_end_date=right_now
         obj.save()
 
         # Delete
@@ -90,7 +92,7 @@ class TestContact(TestCase):
                 is_organization=False,
                 valid_start_date=start_date,
                 valid_end_date=end_date,
-                txn_start_date=now(),
+                txn_start_date=right_now,
                 txn_end_date=None)
         obj.save()
 
