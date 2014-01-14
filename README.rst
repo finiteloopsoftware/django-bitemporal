@@ -43,6 +43,18 @@ update(using=None):
     ``obj.ammend(as_of=obj.valid_start_date)``
     ``using`` will be passed on to ``.save()``.
 
+delete([as_of=now()], using=None):
+    Will write a new row with the valid_end_date to ``as_of``
+    Returns this new row
+
+    The object which delete is called on will be in an inconsistent state after
+    the call to delete.
+
+    ``using`` will be passed on to ``.delete()``.
+
+eradicate():
+    Call the real delete method, this is hidden since you generally do not want
+    to delete rows.
 
 Definitions
 ===========

@@ -114,7 +114,7 @@ class BitemporalModelBase(models.Model):
         old_self.txn_end_date = None
         old_self.valid_end_date = as_of
 
-        # save change 
+        # save change
         old_self.save(using=using)
 
         # Save self as new row
@@ -133,6 +133,9 @@ class BitemporalModelBase(models.Model):
         """
         self.amend(as_of=self.valid_start_date, using=using)
 
+    def eradicate(self, *args, **kwargs):
+        return super(BitemporalModelBase, self).delete(*args, **kwargs)
+
     def delete(self, as_of=None, using=None):
         """
             Invalidate self
@@ -142,6 +145,9 @@ class BitemporalModelBase(models.Model):
         now = utcnow()
         if as_of is None:
             as_of = now
+
+        if self.valid_end_date:
+            raise IntegrityError('Cannot delete non-current object')
 
         # Refetch data so we don't update any fields
         old_self = self._original()
@@ -157,3 +163,4 @@ class BitemporalModelBase(models.Model):
 
         # save change
         old_self.save(using=using)
+        return old_self
