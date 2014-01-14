@@ -54,7 +54,8 @@ class TestContact(TestCase):
         # Pre Change Update
         start_date = obj.valid_start_date
         new_date = datetime.datetime(2003, 7, 8, 0, 0, 0, tzinfo=utc)
-        obj.txn_end_date=now()
+        right_now = now()
+        obj.txn_end_date=right_now
         obj.save()
 
         # Pre Change Set End Date
@@ -63,7 +64,7 @@ class TestContact(TestCase):
                 is_organization=False,
                 valid_start_date=start_date,
                 valid_end_date=new_date,
-                txn_start_date=now(),
+                txn_start_date=right_now,
                 txn_end_date=None)
         obj.save()
 
@@ -73,7 +74,7 @@ class TestContact(TestCase):
                 is_organization=False,
                 valid_start_date=new_date,
                 valid_end_date=None,
-                txn_start_date=now(),
+                txn_start_date=right_now,
                 txn_end_date=None)
         obj.save()
 

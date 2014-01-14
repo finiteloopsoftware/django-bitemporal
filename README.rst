@@ -2,7 +2,12 @@
 django-bitemporal
 =================
 
-Bitemporal data support for the Django ORM
+Bitemporal data support for the Django ORM.
+
+Any change in an object is implemented in three steps.
+1) Invalidate the current row
+2) Create a copy of that row with valid_end_date set
+3) Create the new row
 
 Field Types
 ===========
@@ -26,26 +31,24 @@ Transaction Start/End Date
 Methods
 =======
 
-amend([as_of=now()], using=None, update_fields=None):
-    After making changes to a model, call .ammend() with an optional `as_of`
-    date to save the changes as effective on the `as_of` date. Defaults to the
+amend([as_of=now()], using=None):
+    After making changes to a model, call .ammend() with an optional ``as_of``
+    date to save the changes as effective on the ``as_of`` date. Defaults to the
     current date and time.
-    `using` and `update_fields` will be passed on to `.save()`. `update_fields`
-    will have the required bitemporal fields added as needed.
+    ``using`` will be passed on to ``.save()``.
 
-
-update(using=None, update_fields=None):
+update(using=None):
     After making changes which correct previous errors, call update to save the
     change while invalidating the previous values. This is equivalent to calling
-    `obj.ammend(as_of=obj.valid_start_date)`
-    `using` and `update_fields` will be passed on to `.save()`. `update_fields`
-    will have the required bitemporal fields added as needed.
+    ``obj.ammend(as_of=obj.valid_start_date)``
+    ``using`` will be passed on to ``.save()``.
 
 
 Definitions
 ===========
 
 active row
-    For a given `id` value, there should be a single object identified by its
-    `row_id` for which the `txn_end_date` is None, this is the current
-    representation of the object, and thus "active".
+    For a given ``id`` value and ``date``, there should be a single object
+    identified by its ``row_id`` for which ``date`` is between
+    ``valid_start_date`` and ``valid_end_date`` and the ``txn_end_date`` is
+    None, this is an "active row"

@@ -62,6 +62,9 @@ class BitemporalModelBase(models.Model):
             ('id', 'valid_start_date', 'valid_end_date', 'txn_end_date'),
         ]
 
+    def _original(self):
+        return self.__class__.objects.get(row_id=self.row_id)
+
     def save(self, as_of=None, force_insert=False, force_update=False, using=None, update_fields=None):
         """ if as_of is provided, self.valid_start_date is set to it.
         if self.valid_start_date is undefined, it is set to now.
@@ -81,9 +84,11 @@ class BitemporalModelBase(models.Model):
             self.id = self.row_id
             self.save_base(using=using, update_fields=('id',))
 
-    def amend(self, as_of=None, using=None, update_fields=None):
+    def amend(self, as_of=None, using=None):
         """
-            Save self, old values were true 'till now
+            Invalidate self
+            Write old data with valid_end set
+            write new data
         """
         now = utcnow()
         if as_of is None:
@@ -98,28 +103,32 @@ class BitemporalModelBase(models.Model):
             raise IntegrityError('as_of date {} must precede valid_end_date {}'.format(
                 as_of, self.valid_end_date))
 
-        self.txn_end_date = now
-        old_end = self.valid_end_date
-        self.valid_end_date = as_of
-        # Only save changes to bitemporal fields (Prevents overwriting data changes to the old row)
-        self.save(using=using, update_fields=['txn_end_date', 'valid_end_date',])
+        old_self = self._original()
+        old_self.txn_end_date = now
+        # invalidate previous row
+        old_self.save(using=using, update_fields=['txn_end_date',])
 
-        # Make sure we create a new row entry
+        # Save new row with valid end date
+        old_self.row_id = None
+        old_self.txn_start_date = now
+        old_self.txn_end_date = None
+        old_self.valid_end_date = as_of
+
+        # save change 
+        old_self.save(using=using, )
+
+        # Save self as new row
         self.row_id = None
 
         self.txn_start_date = now
         self.txn_end_date = None
         self.valid_start_date = as_of
-        self.valid_end_date = old_end
 
-        if update_fields:
-            field_list = ['txn_end_date', 'valid_end_date',] + update_fields
-            self.save(using=using, update_fields=field_list)
-        else:
-            self.save(using=using)
+        self.save(using=using)
 
-    def update(self, using=None, update_fields=None):
+    def update(self, using=None):
         """
-            Save self, old values were never true, valid_date range will be null
+            an amend where:
+            old values were never true, valid_date range will be null
         """
-        self.amend(as_of=self.valid_start_date)
+        self.amend(as_of=self.valid_start_date, using=using)
