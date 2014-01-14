@@ -184,3 +184,19 @@ class TestContact(TestCase):
 
         self.assertGreater(obj.txn_start_date, then)
         self.assertGreater(obj.valid_end_date, then)
+
+    def test_bad_valid_period(self):
+        obj = models.Contact.objects.current().get(pk=1)
+        obj.valid_end_date = now()
+        obj.valid_start_date = now()
+
+        with self.assertRaises(IntegrityError):
+            obj.save()
+
+    def test_bad_txn_period(self):
+        obj = models.Contact.objects.current().get(pk=1)
+        obj.txn_end_date = now()
+        obj.txn_start_date = now()
+
+        with self.assertRaises(IntegrityError):
+            obj.save()

@@ -81,6 +81,14 @@ class BitemporalModelBase(models.Model):
         if self.valid_start_date is None:
             self.valid_start_date = utcnow()
 
+        if self.valid_end_date and self.valid_start_date > self.valid_end_date:
+            raise IntegrityError('valid_start_date date {} must precede valid_end_date {}'.format(
+                self.valid_start_date, self.valid_end_date))
+
+        if self.txn_end_date and self.txn_start_date > self.txn_end_date:
+            raise IntegrityError('txn_start_date date {} must precede txn_end_date {}'.format(
+                self.txn_start_date, self.txn_end_date))
+
         self.save_base(using=using, force_insert=force_insert,
                        force_update=force_update, update_fields=update_fields)
 
