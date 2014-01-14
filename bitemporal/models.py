@@ -1,11 +1,11 @@
 import copy
-from django.db import models
-#from datetime import datetime
-from django.db.models import Q
-from django.db.models.query import QuerySet
-from django.db.models.manager import Manager
-from django.utils.timezone import now as utcnow
+
 from django.db import IntegrityError
+from django.db import models, transaction
+from django.db.models import Q
+from django.db.models.manager import Manager
+from django.db.models.query import QuerySet
+from django.utils.timezone import now as utcnow
 
 
 class BitemporalQuerySet(QuerySet):
@@ -17,6 +17,7 @@ class BitemporalQuerySet(QuerySet):
 
         return super(BitemporalQuerySet, self).get(*args, **kwargs)
 
+    @transaction.commit_on_success
     def delete(self):
         for obj in self:
             obj.delete()
@@ -88,6 +89,7 @@ class BitemporalModelBase(models.Model):
             self.id = self.row_id
             self.save_base(using=using, update_fields=('id',))
 
+    @transaction.commit_on_success
     def amend(self, as_of=None, using=None):
         """
             Invalidate self
@@ -140,6 +142,7 @@ class BitemporalModelBase(models.Model):
     def eradicate(self, *args, **kwargs):
         return super(BitemporalModelBase, self).delete(*args, **kwargs)
 
+    @transaction.commit_on_success
     def delete(self, as_of=None, using=None):
         """
             Invalidate self
