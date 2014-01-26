@@ -28,22 +28,27 @@ Transaction Start/End Date
     When the record was active in the system. Effectively audit columns.
 
 
-Methods
-=======
+Model Methods
+=============
 
-amend([as_of=now()], using=None):
-    After making changes to a model, call .ammend() with an optional ``as_of``
+amend(as_of=now(), using=None):
+    After making changes to a model, call .amend() with an optional ``as_of``
     date to save the changes as effective on the ``as_of`` date. Defaults to the
-    current date and time.
+    current date and time. 
     ``using`` will be passed on to ``.save()``.
 
 update(using=None):
     After making changes which correct previous errors, call update to save the
-    change while invalidating the previous values. This is equivalent to calling
-    ``obj.ammend(as_of=obj.valid_start_date)``
+    change while invalidating the previous values. This is equivalent to calling:
+    ``obj.amend(as_of=obj.valid_start_date)``
     ``using`` will be passed on to ``.save()``.
 
-delete([as_of=now()], using=None):
+save_during(valid_start, valid_end=TIME_CURRENT, using=None):
+    Save the object in a new row with ``valid_start_date`` and ``valid_end_date``
+    set for the provided interval. Existing rows which confict with the vaild
+    period will be updated to have thier end points adjusted.
+
+delete(as_of=now(), using=None):
     Will write a new row with the valid_end_date to ``as_of``
     Returns this new row
 
@@ -56,11 +61,38 @@ eradicate():
     Call the real delete method, this is hidden since you generally do not want
     to delete rows.
 
+
+Manager/QuerySet Methods
+=============
+
+active():
+    returns all active rows
+
+current():
+    returns all current, active rows
+
+during(valid_start, valid_end=None):
+    If ``valid_end`` is None, it will be treated as ``valid_start + 1ms``
+    Return all rows (active or not) that were valid during the interval
+    ``[valid_start, valid_end)``
+
+active_during(txn_start, txn_end=TIME_CURRENT):
+    If ``txn_end`` is None, it will be treated as ``txn_start + 1ms``
+    Return all rows that were active during the interval
+    ``[txn_start, txn_end)``
+
+
 Definitions
 ===========
 
 active row
+    Any row where ``txn_end_date`` is ``TIME_CURRENT`` is active.
+
+current row
+    Any row where ``valid_start_date`` < ``now()`` and ``valid_end_date`` > ``now()``
+
+Temporal consistency invariant
     For a given ``id`` value and ``date``, there should be a single object
-    identified by its ``row_id`` for which ``date`` is between
-    ``valid_start_date`` and ``valid_end_date`` and the ``txn_end_date`` is
-    None, this is an "active row"
+    identified by its ``row_id`` for which ``date`` is in the interval
+    ``[valid_start_date, valid_end_date)`` and the ``txn_end_date`` ==
+    ``TIME_CURRENT``
