@@ -9,16 +9,12 @@ Any change in an object is implemented in three steps.
 2) Create a copy of that row with valid_end_date set
 3) Create the new row
 
+All Bitemporal objects have a ForeignKey called master to MasterObject, which
+represents every state the object has been in. To relate to a Bitemporal object
+you should make another ForeignKey to MasterObject.
+
 Field Types
 ===========
-Row Key
-    The primary key for the row regardless of the data in the row. Used to
-    leverage sequences in the underlying database for databases that don't
-    support sequences.
-
-Primary Key
-    The primary key for the data itself. This column should be unique for a set
-    of data but the value may not be unique across the column in the database.
 
 Valid Start/End Date
     When the record is active in the real world, regardless of the time it was
@@ -27,9 +23,17 @@ Valid Start/End Date
 Transaction Start/End Date
     When the record was active in the system. Effectively audit columns.
 
+MasterObject Model Methods
+=========================
 
-Model Methods
-=============
+get_all():
+    returns a BitemporalQuerySet containing all versions of the object
+
+get_current():
+    Short cut for get_all().current().get() - returns a single version of the object
+
+Bitemporal Model Methods
+========================
 
 amend(as_of=now(), using=None):
     After making changes to a model, call .amend() with an optional ``as_of``
@@ -70,6 +74,7 @@ active():
 
 current():
     returns all current, active rows
+    shortcut for ``.active().during(now())``
 
 during(valid_start, valid_end=None):
     If ``valid_end`` is None, it will be treated as ``valid_start + 1ms``

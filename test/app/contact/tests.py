@@ -1,6 +1,7 @@
 from datetime import datetime
 import time
 
+from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
 from django.test import TestCase
 from django.utils import unittest
@@ -8,7 +9,7 @@ from django.utils.timezone import now as utcnow
 from django.utils.timezone import utc
 
 from contact import models
-from bitemporal.models import TIME_CURRENT, TIME_RESOLUTION
+from bitemporal.models import TIME_CURRENT, TIME_RESOLUTION, MasterObject
 
 
 JOHN_START = datetime(1980, 1, 1, 0, 0 ,0, tzinfo=utc)
@@ -23,11 +24,29 @@ JANE_END = datetime(2005, 9, 18, 0, 0, 0, tzinfo=utc)
 SUE_START = datetime(1971, 3, 16, 0, 0, 0, tzinfo=utc)
 SUE_END = datetime(2008, 5, 21, 0, 0, 0, tzinfo=utc)
 
+JohnMaster = None
+AcmeMaster = None
+JaneMaster = None
+SueMaster = None
+
 class TestContact(TestCase):
 
     def setUp(self):
+        content_type=ContentType.objects.get_for_model(models.Contact)
+        global JohnMaster, AcmeMaster, JaneMaster, SueMaster
+
+        JohnMaster = MasterObject(content_type=content_type)
+        AcmeMaster = MasterObject(content_type=content_type)
+        JaneMaster = MasterObject(content_type=content_type)
+        SueMaster = MasterObject(content_type=content_type)
+
+        JohnMaster.save()
+        AcmeMaster.save()
+        JaneMaster.save()
+        SueMaster.save()
+
         # John Doe Exists from JOHN_START
-        obj = models.Contact(id=1,
+        obj = models.Contact(_master=JohnMaster,
                 name=u"John Doe",
                 is_organization=False,
                 _valid_start_date=JOHN_START,
@@ -40,7 +59,7 @@ class TestContact(TestCase):
         # Changes name to Acme LLC at ACME_CHANGE
 
         # Original Created
-        obj = models.Contact(id=2,
+        obj = models.Contact(_master=AcmeMaster,
                 name=u"Acme Corp",
                 is_organization=True,
                 _valid_start_date=ACME_START,
@@ -52,10 +71,10 @@ class TestContact(TestCase):
         now = utcnow()
         # Original invalidated
         obj._txn_end_date=now
-        obj.save()
+        obj.save(update_fields=('_txn_end_date',))
 
         # Original value with valid_end_date
-        obj = models.Contact(id=2,
+        obj = models.Contact(_master=AcmeMaster,
                 name=u"Acme Corp",
                 is_organization=True,
                 _valid_start_date=ACME_START,
@@ -65,7 +84,7 @@ class TestContact(TestCase):
         obj.save()
 
         # New value
-        obj = models.Contact(id=2,
+        obj = models.Contact(_master=AcmeMaster,
                 name=u"Acme LLC",
                 is_organization=True,
                 _valid_start_date=ACME_CHANGE,
@@ -81,7 +100,7 @@ class TestContact(TestCase):
         # Dies at JANE_END
 
         # Original created
-        obj = models.Contact(id=3,
+        obj = models.Contact(_master=JaneMaster,
                 name=u"Jane Duck",
                 is_organization=False,
                 _valid_start_date=JANE_START,
@@ -94,10 +113,10 @@ class TestContact(TestCase):
         now = utcnow()
         # Orignal invalidated
         obj._txn_end_date=now
-        obj.save()
+        obj.save(update_fields=('_txn_end_date',))
 
         # Original with valid_end
-        obj = models.Contact(id=3,
+        obj = models.Contact(_master=JaneMaster,
                 name=u"Jane Duck",
                 is_organization=False,
                 _valid_start_date=JANE_START,
@@ -107,10 +126,10 @@ class TestContact(TestCase):
         obj.save()
 
         # New value
-        obj = models.Contact(id=3,
+        obj = models.Contact(_master=JaneMaster,
                 name=u"Jane Doe",
                 is_organization=False,
-                _spouse_id=1,
+                spouse=JohnMaster,
                 _valid_start_date=JANE_CHANGE,
                 _valid_end_date=TIME_CURRENT,
                 _txn_start_date=now,
@@ -121,13 +140,13 @@ class TestContact(TestCase):
         now = utcnow()
         # New Value invalidated
         obj._txn_end_date=now
-        obj.save()
+        obj.save(update_fields=('_txn_end_date',))
 
         # New value with valid_end
-        obj = models.Contact(id=3,
+        obj = models.Contact(_master=JaneMaster,
                 name=u"Jane Doe",
                 is_organization=False,
-                _spouse_id=1,
+                spouse=JohnMaster,
                 _valid_start_date=JANE_CHANGE,
                 _valid_end_date=JANE_END,
                 _txn_start_date=now,
@@ -136,7 +155,7 @@ class TestContact(TestCase):
 
         # Sue born: SUE_START, Dies SUE_END
         # Sue's birth recorded at JANE_START
-        obj = models.Contact(id=4,
+        obj = models.Contact(_master=SueMaster,
                 name=u"Sue Smith",
                 is_organization=False,
                 _valid_start_date=SUE_START,
@@ -149,10 +168,10 @@ class TestContact(TestCase):
         now = utcnow()
         # Original invalidated
         obj._txn_end_date=now
-        obj.save()
+        obj.save(update_fields=('_txn_end_date',))
 
         # Set valid_end to SUE_END
-        obj = models.Contact(id=4,
+        obj = models.Contact(_master=SueMaster,
                 name=u"Sue Smith",
                 is_organization=False,
                 _valid_start_date=SUE_START,
@@ -170,21 +189,21 @@ class TestContact(TestCase):
             obj.eradicate()
 
     def test_get_current_john_doe(self):
-        obj = models.Contact.objects.current().get(pk=1)
+        obj = models.Contact.objects.current().get(_master=JohnMaster)
         self.assertEqual(obj.name, u"John Doe")
 
     def test_get_current_achme(self):
-        obj = models.Contact.objects.current().get(pk=2)
+        obj = models.Contact.objects.current().get(_master=AcmeMaster)
         self.assertEqual(obj.name, u"Acme LLC")
 
     def test_get_current_jane_doe(self):
         self.assertRaises(models.Contact.DoesNotExist,
-                models.Contact.objects.current().get, pk=3)
+                models.Contact.objects.current().get, _master=JaneMaster)
 
     def test_during_jane_doe_one(self):
         # between JANE_START and JANE_CHANGE
         obj = models.Contact.objects.active().during(
-            datetime(1977, 1, 1, 0, 0, 0, tzinfo=utc)).get(pk=3)
+            datetime(1977, 1, 1, 0, 0, 0, tzinfo=utc)).get(_master=JaneMaster)
         self.assertEqual(obj.name, u"Jane Duck")
 
     def test_during_jane_doe_two(self):
@@ -192,7 +211,7 @@ class TestContact(TestCase):
         obj = models.Contact.objects.active().during(
             datetime(2004, 1, 1, 0, 0, 0, tzinfo=utc),
             datetime(2005, 1, 1, 0, 0, 0, tzinfo=utc)
-            ).get(pk=3)
+            ).get(_master=JaneMaster)
         self.assertEqual(obj.name, u"Jane Doe")
 
     def test_during_jane_doe_three(self):
@@ -202,37 +221,38 @@ class TestContact(TestCase):
             datetime(2005, 1, 1, 0, 0, 0, tzinfo=utc)
         )
         with self.assertRaises(models.Contact.MultipleObjectsReturned):
-            obj = qs.get(pk=3)
+            obj = qs.get(_master=JaneMaster)
 
-        objs = qs.filter(pk=3)
+        objs = qs.filter(_master=JaneMaster)
 
         self.assertEqual(objs.count(), 2)
         self.assertEqual(objs[0].name, 'Jane Duck')
         self.assertEqual(objs[1].name, 'Jane Doe')
         # Test spouse relation
-        self.assertEqual(objs[1].spouse[0].name, 'John Doe')
+        self.assertEqual(objs[1].spouse.get_all()[0].name, 'John Doe')
 
     def test_insert_billy_bob(self):
         obj = models.Contact(name=u"Billy Bob", is_organization=False)
         obj.save_during(utcnow(), TIME_CURRENT)
 
-        obj = models.Contact.objects.current().get(row_id=obj.row_id)
-        self.assertEqual(obj.id, obj.row_id)
+        master = MasterObject.objects.get(pk=obj.master.pk)
+        self.assertEqual(1, master.get_all().count())
+        self.assertEqual(obj, master.get_current())
 
     def test_update_acme(self):
         new_name = u"Acme and Sons LLC"
-        obj = models.Contact.objects.current().get(pk=2)
-        row_id = obj.row_id
+        obj = models.Contact.objects.current().get(_master=AcmeMaster)
+        pk = obj.pk
         old_name = obj.name
         obj.name = new_name
         obj.update()  # Save a fact, replacing old value at old time
-        old = models.Contact.objects.get(row_id=row_id)
+        old = models.Contact.objects.get(pk=pk)
 
         self.assertEqual(old_name, old.name)
 
         # Get the new object
-        obj = models.Contact.objects.current().get(pk=2)
-        self.assertGreater(obj.row_id, row_id)
+        obj = models.Contact.objects.current().get(_master=AcmeMaster)
+        self.assertGreater(obj.pk, pk)
         self.assertEqual(obj.name, new_name)
 
     def test_invalid_amend(self):
@@ -257,25 +277,25 @@ class TestContact(TestCase):
         # fetch a Non-current row
         obj = models.Contact.objects.active().during(
             datetime(1977, 1, 1, 0, 0, 0, tzinfo=utc),
-        ).get(pk=3)
+        ).get(_master=JaneMaster)
 
         with self.assertRaises(IntegrityError):
             obj.delete()
 
     def test_delete_john_doe(self):
-        obj = models.Contact.objects.current().get(pk=1)
+        obj = models.Contact.objects.current().get(_master=JohnMaster)
         then = utcnow()
         time.sleep(.1)
         obj = obj.delete()
 
         with self.assertRaises(models.Contact.DoesNotExist):
-            obj = models.Contact.objects.current().get(pk=1)
+            obj = models.Contact.objects.current().get(_master=JohnMaster)
 
         self.assertGreater(obj.txn_start_date, then)
         self.assertGreater(obj.valid_end_date, then)
 
     def test_bad_valid_period(self):
-        obj = models.Contact.objects.current().get(pk=1)
+        obj = models.Contact.objects.current().get(_master=JohnMaster)
         obj._valid_end_date = utcnow()
         time.sleep(.1)
         obj._valid_start_date = utcnow()
@@ -284,7 +304,7 @@ class TestContact(TestCase):
             obj.save()
 
     def test_bad_txn_period(self):
-        obj = models.Contact.objects.current().get(pk=1)
+        obj = models.Contact.objects.current().get(_master=JohnMaster)
         obj._txn_end_date = utcnow()
         time.sleep(.1)
         obj._txn_start_date = utcnow()
@@ -297,17 +317,17 @@ class TestContact(TestCase):
     # old in:   [   )
     # old out:  [   )
     def test_new_open_interval_1(self):
-        obj = models.Contact.objects.active().during(SUE_START).get(pk=4)
+        obj = models.Contact.objects.active().during(SUE_START).get(_master=SueMaster)
         old_in = obj._original() # Fetch second copy
         # back from the dead
         obj.name = "Zombie Sue"
         obj.save_during(SUE_END)
 
         old_in = old_in._original() # re-Fetch row
-        old_out = models.Contact.objects.active().during(SUE_START).get(pk=4)
+        old_out = models.Contact.objects.active().during(SUE_START).get(_master=SueMaster)
 
-        self.assertNotEqual(old_in.row_id, obj.row_id)
-        self.assertEqual(old_in.row_id, old_out.row_id)
+        self.assertNotEqual(old_in.pk, obj.pk)
+        self.assertEqual(old_in.pk, old_out.pk)
         # old row didn't change, still valid
         self.assertEqual(old_out.txn_end_date, TIME_CURRENT)
 
@@ -316,18 +336,18 @@ class TestContact(TestCase):
     # old out:  [   )
     def test_new_open_interval_2(self):
         self.assertLess(JANE_END, SUE_END)
-        obj = models.Contact.objects.active().during(SUE_START).get(pk=4)
+        obj = models.Contact.objects.active().during(SUE_START).get(_master=SueMaster)
         old_in = obj._original() # Fetch clean copy
-        # back from the dead.... before she die. Original DOD was wrong?
+        # back from the dead.... before she died. Original DOD was wrong?
         obj.name = "Zombie Sue"
         obj.save_during(JANE_END)
 
         old_in = old_in._original() # re-Fetch row
-        old_out = models.Contact.objects.active().during(SUE_START).get(pk=4)
+        old_out = models.Contact.objects.active().during(SUE_START).get(_master=SueMaster)
 
         # Total of 3 rows
-        self.assertNotEqual(old_in.row_id, obj.row_id)
-        self.assertNotEqual(old_in.row_id, old_out.row_id)
+        self.assertNotEqual(old_in.pk, obj.pk)
+        self.assertNotEqual(old_in.pk, old_out.pk)
         # old_in is invalidated
         self.assertNotEqual(old_in.txn_end_date, TIME_CURRENT)
 
@@ -340,23 +360,23 @@ class TestContact(TestCase):
     # old in:           [    )
     # old out:   Invalidated
     def test_new_open_interval_3(self):
-        obj = models.Contact.objects.active().during(SUE_START).get(pk=4)
+        obj = models.Contact.objects.active().during(SUE_START).get(_master=SueMaster)
         old_in = obj._original() # Fetch clean copy
         # Corrected DOB, earlier, and not dead yet
         obj.name = "Lucky Sue"
         obj.save_during(SUE_START - (10 * TIME_RESOLUTION))
 
         old_in = old_in._original() # re-Fetch row
-        old_missing_p = models.Contact.objects.active().filter(pk=4)
+        old_missing_p = models.Contact.objects.active().filter(_master=SueMaster)
 
         #Only one active row
         self.assertEqual(old_missing_p.count(), 1)
 
         #It is obj
-        self.assertEqual(old_missing_p[0].row_id, obj.row_id)
+        self.assertEqual(old_missing_p[0].pk, obj.pk)
 
         # Total of 2 rows
-        self.assertNotEqual(old_in.row_id, obj.row_id)
+        self.assertNotEqual(old_in.pk, obj.pk)
         # old_in is invalidated
         self.assertNotEqual(old_in.txn_end_date, TIME_CURRENT)
 
@@ -365,18 +385,18 @@ class TestContact(TestCase):
     # old out:  [   )
     def test_new_open_interval_4(self):
         self.assertGreater(JANE_CHANGE, JOHN_START)
-        obj = models.Contact.objects.active().during(JOHN_START).get(pk=1)
+        obj = models.Contact.objects.active().during(JOHN_START).get(_master=JohnMaster)
         old_in = obj._original() # Fetch second copy
         obj.name = "John Smith"
-        obj._spouse_id = 4
+        obj.spouse = SueMaster
         obj.save_during(JANE_CHANGE)
 
         old_in = old_in._original() # re-Fetch row
-        old_out = models.Contact.objects.active().during(JOHN_START).get(pk=1)
+        old_out = models.Contact.objects.active().during(JOHN_START).get(_master=JohnMaster)
 
         # Total of 3 rows
-        self.assertNotEqual(old_in.row_id, obj.row_id)
-        self.assertNotEqual(old_in.row_id, old_out.row_id)
+        self.assertNotEqual(old_in.pk, obj.pk)
+        self.assertNotEqual(old_in.pk, old_out.pk)
         # old_in is invalidated
         self.assertNotEqual(old_in.txn_end_date, TIME_CURRENT)
 
@@ -389,23 +409,23 @@ class TestContact(TestCase):
     # old in:       [
     # old out:   Invalidated
     def test_new_open_interval_5(self):
-        obj = models.Contact.objects.active().during(JOHN_START).get(pk=1)
+        obj = models.Contact.objects.active().during(JOHN_START).get(_master=JohnMaster)
         old_in = obj._original() # Fetch second copy
         obj.name = "John Smith"
-        obj._spouse_id = 4
+        obj.spouse = SueMaster
         obj.save_during(JOHN_START)
 
         old_in = old_in._original() # re-Fetch row
-        old_missing_p = models.Contact.objects.active().filter(pk=1)
+        old_missing_p = models.Contact.objects.active().filter(_master=JohnMaster)
 
         # Only one active row
         self.assertEqual(old_missing_p.count(), 1)
 
         # It is obj
-        self.assertEqual(old_missing_p[0].row_id, obj.row_id)
+        self.assertEqual(old_missing_p[0].pk, obj.pk)
 
         # Total of 2 rows
-        self.assertNotEqual(old_in.row_id, obj.row_id)
+        self.assertNotEqual(old_in.pk, obj.pk)
 
         # old_in is invalidated
         self.assertNotEqual(old_in.txn_end_date, TIME_CURRENT)
@@ -415,7 +435,7 @@ class TestContact(TestCase):
     # old out:   [ 1) 2: Invalidated
     def test_new_open_interval_6(self):
         # Use list to force execution, or lazy execution happens after save.
-        objs = list(models.Contact.objects.active().during(ACME_START, TIME_CURRENT).filter(pk=2))
+        objs = list(models.Contact.objects.active().during(ACME_START, TIME_CURRENT).filter(_master=AcmeMaster))
         self.assertEqual(len(objs), 2)
         self.assertEqual(objs[0].valid_end_date, objs[1].valid_start_date)
         new_obj = objs[0]._original() # Fetch second copy
@@ -423,14 +443,14 @@ class TestContact(TestCase):
         # Correction, formed later and never changed names
         new_obj.save_during(ACME_START + (300*TIME_RESOLUTION))
 
-        post_objs = models.Contact.objects.active().during(ACME_START, TIME_CURRENT).filter(pk=2)
+        post_objs = models.Contact.objects.active().during(ACME_START, TIME_CURRENT).filter(_master=AcmeMaster)
 
         # Only two active
         self.assertEqual(post_objs.count(), 2)
         # First is a new row
-        self.assertNotIn(post_objs[0].row_id, [o.row_id for o in objs])
+        self.assertNotIn(post_objs[0].pk, [o.pk for o in objs])
         # Second is the updated value
-        self.assertEqual(post_objs[1].row_id, new_obj.row_id)
+        self.assertEqual(post_objs[1].pk, new_obj.pk)
 
         # First has the right dates
         old_in_1 = objs[0]
@@ -448,18 +468,18 @@ class TestContact(TestCase):
         self.assertLess(JOHN_START, JANE_CHANGE)
         self.assertLess(JANE_END, TIME_CURRENT)
 
-        obj = models.Contact.objects.active().during(JOHN_START).get(pk=1)
+        obj = models.Contact.objects.active().during(JOHN_START).get(_master=JohnMaster)
         old_in = obj._original() # Fetch second copy
         # Traded names 'till death did them part
         obj.name = 'John Duck'
         obj.save_during(JANE_CHANGE, JANE_END)
 
         old_in = old_in._original() # re-Fetch row
-        end_rows = models.Contact.objects.active().filter(pk=1)
+        end_rows = models.Contact.objects.active().filter(_master=JohnMaster)
 
         # obj, is #2 of three active rows
         self.assertEqual(end_rows.count(), 3)
-        self.assertEqual(end_rows[1].row_id, obj.row_id)
+        self.assertEqual(end_rows[1].pk, obj.pk)
 
         # check out 1 bounds
         self.assertEqual(end_rows[0].valid_start_date, old_in.valid_start_date)
