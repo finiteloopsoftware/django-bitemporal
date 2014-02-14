@@ -11,7 +11,7 @@ from django.utils.timezone import now as utcnow
 from django.utils.timezone import utc
 
 
-TIME_CURRENT = datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=utc)
+TIME_CURRENT = datetime.max.replace(tzinfo=utc)
 TIME_RESOLUTION = timedelta(0, 0, 1) # = 1 microsecond
 
 
