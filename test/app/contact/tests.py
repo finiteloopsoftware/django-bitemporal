@@ -129,7 +129,7 @@ class TestContact(TestCase):
         obj = models.Contact(_master=JaneMaster,
                 name=u"Jane Doe",
                 is_organization=False,
-                spouse=JohnMaster,
+                _spouse=JohnMaster,
                 _valid_start_date=JANE_CHANGE,
                 _valid_end_date=TIME_CURRENT,
                 _txn_start_date=now,
@@ -146,7 +146,7 @@ class TestContact(TestCase):
         obj = models.Contact(_master=JaneMaster,
                 name=u"Jane Doe",
                 is_organization=False,
-                spouse=JohnMaster,
+                _spouse=JohnMaster,
                 _valid_start_date=JANE_CHANGE,
                 _valid_end_date=JANE_END,
                 _txn_start_date=now,
@@ -229,7 +229,8 @@ class TestContact(TestCase):
         self.assertEqual(objs[0].name, 'Jane Duck')
         self.assertEqual(objs[1].name, 'Jane Doe')
         # Test spouse relation
-        self.assertEqual(objs[1].spouse.get_all()[0].name, 'John Doe')
+        self.assertEqual(objs[1]._spouse.get_all()[0].name, 'John Doe')
+        self.assertEqual(objs[1].spouse_qs[0].name, 'John Doe')
 
     def test_insert_billy_bob(self):
         obj = models.Contact(name=u"Billy Bob", is_organization=False)
@@ -388,7 +389,7 @@ class TestContact(TestCase):
         obj = models.Contact.objects.active().during(JOHN_START).get(_master=JohnMaster)
         old_in = obj._original() # Fetch second copy
         obj.name = "John Smith"
-        obj.spouse = SueMaster
+        obj._spouse = SueMaster
         obj.save_during(JANE_CHANGE)
 
         old_in = old_in._original() # re-Fetch row
@@ -412,7 +413,7 @@ class TestContact(TestCase):
         obj = models.Contact.objects.active().during(JOHN_START).get(_master=JohnMaster)
         old_in = obj._original() # Fetch second copy
         obj.name = "John Smith"
-        obj.spouse = SueMaster
+        obj._spouse = SueMaster
         obj.save_during(JOHN_START)
 
         old_in = old_in._original() # re-Fetch row
